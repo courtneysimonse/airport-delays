@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>US Airport Delays</title>
+    <meta name="viewport" content="initial-scale=1.0">
+    <meta charset="utf-8">
+    <link href="https://unpkg.com/leaflet@1.3.1/dist/leaflet.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Open+Sans:300,400,600,700' rel='stylesheet' type='text/css'>
+    <style>
+      * {
+        margin:0;
+        padding:0;
+      }
+
+      html {
+        box-sizing:border-box;
+        height:100%;
+      }
+
+      body {
+        background:#f2f6f9;
+        height:100%;
+        font-family:"Open sans",
+        Helvetica, Arial, sans-serif;
+      }
+
+      a {
+      color: white;
+      }
+
+      ul li {
+        margin: 0 0 8px 0;
+      }
+      #container {
+        display:flex;
+        width:100%;
+        height:100%;
+      }
+      #map {
+        position: absolute;
+        height: 100%;
+        width: 100%;
+        z-index: 0;
+      }
+      #infowindow {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        width: 280px;
+        padding: 20px 24px;
+        background: white;
+        box-shadow: 0 0 16px rgba(0, 0, 0, 0.12);
+        border-radius: 4px;
+        z-index: 1;
+      }
+      #content h3 {
+        font-size:1.2em;
+      }
+      header, footer {
+        background: #A28AD5;
+        color: white;
+        padding: 18px 0;
+        box-shadow: 0px 1px 3px #245574;
+      }
+      .container {
+        width: 960px;
+        margin: 18px auto;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="container">
+      <div id="map"></div>
+      <div id="infowindow">
+        <h2>Delays by US Airports in 2017</h2>
+        <div id="content"></div>
+      </div>
+    </div>
+    <footer>
+    <div class="container">
+      <ul>
+        <li>Map authored by <a href="https://courtneysimonse.github.io/" target="_blank">Courtney Simonse</a></li>
+        <li>data sourced from <a target="_blank" href="https://aspm.faa.gov/opsnet/sys/Delays.asp">Federal Aviation Administration OPSNET</a></li>
+      </ul>
+    </div>
+  </footer>
+    <script src="https://unpkg.com/leaflet@1.3.1/dist/leaflet.js"></script>
+    <script src="https://cartodb-libs.global.ssl.fastly.net/carto.js/v4.0.0-beta.20/carto.min.js"></script>
+    <script>
+      // code will go here!
+      const map = L.map('map').setView([40, -98], 4);
+
+      // Adding Voyager Basemap
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}.png', {
+        maxZoom: 18
+      }).addTo(map);
+
+      // Adding Voyager Labels
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}.png', {
+        maxZoom: 18,
+        zIndex: 10
+      }).addTo(map);
+
+      // my username and API key
+      var client = new carto.Client({
+        apiKey: '92fec8909689587b2ee2a67b488e29e71cea7453',
+        username: 'courtneysimonse'
+      });
+
+      // connect to airports dataset
+      const usaAirportsDataset = new carto.source.Dataset(`
+        airport_delays_2017
+      `);
+
+      // style airports and create layer
+      const usaAirportsStyle = new carto.style.CartoCSS(`
+        #layer {
+          marker-width: ramp([total_num_delays], range(5, 30), quantiles(7));
+          marker-fill: #EE4D5A;
+          marker-fill-opacity: 0.9;
+          marker-allow-overlap: true;
+          marker-line-width: 1;
+          marker-line-color: #FFFFFF;
+          marker-line-opacity: 1;
+        }
+      `);
+      const usaAirports = new carto.layer.Layer(usaAirportsDataset, usaAirportsStyle, {
+        featureOverColumns: ['ita', 'name', 'avg_min', 'total_num_delays']
+      });
+
+      client.addLayers([usaAirports]);
+
+      client.getLeafletLayer().addTo(map);
+
+      usaAirports.on('featureOver', featureEvent => {
+        let content = '';
+        content += `<h3>name: ${featureEvent.data.name} (${featureEvent.data.ita})</h3>`;
+        content += `<p>total delays: ${featureEvent.data.total_num_delays.toLocaleString()}<p>`;
+        content += `<p>average delay: ${featureEvent.data.avg_min.toLocaleString()} min<p></div>`;
+        document.getElementById('content').innerHTML = content;
+      });
+
+      usaAirports.on('featureOut', featureEvent => {
+        document.getElementById('content').innerHTML = '';
+      });
+
+      // All errors are passed to the client.
+      client.on(carto.events.ERROR, cartoError => {
+          console.error(cartoError.message)
+      });
+
+
+    </script>
+  </body>
+</html>
