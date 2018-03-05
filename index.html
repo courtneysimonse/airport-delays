@@ -5,6 +5,8 @@
     <meta name="viewport" content="initial-scale=1.0">
     <meta charset="utf-8">
     <link href="https://unpkg.com/leaflet@1.3.1/dist/leaflet.css" rel="stylesheet">
+    <!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/7.0.0/normalize.min.css" />
+  	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/skeleton/2.0.4/skeleton.min.css" /> -->
     <link href='https://fonts.googleapis.com/css?family=Open+Sans:300,400,600,700' rel='stylesheet' type='text/css'>
     <style>
       * {
@@ -18,37 +20,47 @@
       }
 
       body {
-        background:#f2f6f9;
+        background:#D2D5D9;
         height:100%;
         font-family:"Open sans",
         Helvetica, Arial, sans-serif;
       }
 
       a {
-      color: white;
+      color: #7289A6;
       }
 
-      ul li {
-        margin: 0 0 8px 0;
-      }
       #container {
         display:flex;
         width:100%;
         height:100%;
       }
       #map {
-        position: absolute;
-        height: 100%;
-        width: 100%;
-        z-index: 0;
+          position: absolute;
+          width: 100%;
+          top: 0;
+          bottom: 0;
+          z-index: 0;
       }
-      #infowindow {
+      h1 {
+          position: absolute;
+          z-index: 650;
+          top: 10px;
+          left: 60px;
+          padding: 8px 15px;
+          margin: 0;
+          color: whitesmoke;
+          font-size: 1.5em;
+          background: #7289A6;
+          border-radius: 5px;
+      }
+      #content {
         position: absolute;
         top: 12px;
         right: 12px;
         width: 280px;
         padding: 20px 24px;
-        background: white;
+        background: #D2D5D9;
         box-shadow: 0 0 16px rgba(0, 0, 0, 0.12);
         border-radius: 4px;
         z-index: 1;
@@ -56,48 +68,45 @@
       #content h3 {
         font-size:1.2em;
       }
-      header, footer {
-        background: #A28AD5;
-        color: white;
-        padding: 18px 0;
+      #metadata {
+        color: #59544A;
+        padding: 18px 10px;
         box-shadow: 0px 1px 3px #245574;
       }
-      .container {
-        width: 960px;
-        margin: 18px auto;
-      }
+
     </style>
   </head>
   <body>
     <div id="container">
+      <h1>Delays by US Airports in 2017</h1>
       <div id="map"></div>
-      <div id="infowindow">
-        <h2>Delays by US Airports in 2017</h2>
-        <div id="content"></div>
+      <div id="content">
+        <h3>name:</h3>
+        <p>total delays:</p>
+        <p>average delay:</p>
       </div>
     </div>
-    <footer>
-    <div class="container">
-      <ul>
-        <li>Map authored by <a href="https://courtneysimonse.github.io/" target="_blank">Courtney Simonse</a></li>
-        <li>data sourced from <a target="_blank" href="https://aspm.faa.gov/opsnet/sys/Delays.asp">Federal Aviation Administration OPSNET</a></li>
-      </ul>
+    <div id="metadata">
+        <p>Map authored by <a href="https://courtneysimonse.github.io/" target="_blank">Courtney Simonse</a></p>
+        <p>Data sourced from <a target="_blank" href="https://aspm.faa.gov/opsnet/sys/Delays.asp">Federal Aviation Administration OPSNET</a> for 2017.</p>
     </div>
-  </footer>
     <script src="https://unpkg.com/leaflet@1.3.1/dist/leaflet.js"></script>
     <script src="https://cartodb-libs.global.ssl.fastly.net/carto.js/v4.0.0-beta.20/carto.min.js"></script>
     <script>
       // code will go here!
       const map = L.map('map').setView([40, -98], 4);
 
-      // Adding Voyager Basemap
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}.png', {
-        maxZoom: 18
+      // Adding DarkMatter Basemap
+      var CartoDB_DarkMatterNoLabels = L.tileLayer('https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_nolabels/{z}/{x}/{y}.png', {
+      	attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="http://cartodb.com/attributions">CartoDB</a>',
+      	subdomains: 'abcd',
+      	maxZoom: 19
       }).addTo(map);
-
-      // Adding Voyager Labels
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}.png', {
-        maxZoom: 18,
+      // Adding DarkMatter Labels
+      var CartoDB_DarkMatterOnlyLabels = L.tileLayer('https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_only_labels/{z}/{x}/{y}.png', {
+      	attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="http://cartodb.com/attributions">CartoDB</a>',
+      	subdomains: 'abcd',
+      	maxZoom: 19,
         zIndex: 10
       }).addTo(map);
 
@@ -108,15 +117,32 @@
       });
 
       // connect to airports dataset
-      const usaAirportsDataset = new carto.source.Dataset(`
-        airport_delays_2017
+      const usaAirportsDataset = new carto.source.SQL(`
+        SELECT
+          usa_airports.cartodb_id,
+          usa_airports.the_geom,
+          usa_airports.the_geom_webmercator,
+          usa_airports.ita,
+          usa_airports.name,
+          airport_delays_2017.facility,
+          airport_delays_2017.total_ops,
+          airport_delays_2017.total_num_delays,
+          airport_delays_2017.avg_min,
+          airport_delays_2017.total_min
+        FROM
+          usa_airports, airport_delays_2017
+        WHERE
+          usa_airports.ita = airport_delays_2017.facility
+          AND
+          airport_delays_2017.total_ops > 0
+        ORDER BY airport_delays_2017.total_num_delays DESC
       `);
 
       // style airports and create layer
       const usaAirportsStyle = new carto.style.CartoCSS(`
         #layer {
           marker-width: ramp([total_num_delays], range(5, 30), quantiles(7));
-          marker-fill: #EE4D5A;
+          marker-fill: #D9631E;
           marker-fill-opacity: 0.9;
           marker-allow-overlap: true;
           marker-line-width: 1;
@@ -135,13 +161,13 @@
       usaAirports.on('featureOver', featureEvent => {
         let content = '';
         content += `<h3>name: ${featureEvent.data.name} (${featureEvent.data.ita})</h3>`;
-        content += `<p>total delays: ${featureEvent.data.total_num_delays.toLocaleString()}<p>`;
-        content += `<p>average delay: ${featureEvent.data.avg_min.toLocaleString()} min<p></div>`;
+        content += `<p>total delays: ${featureEvent.data.total_num_delays.toLocaleString()}</p>`;
+        content += `<p>average delay: ${featureEvent.data.avg_min.toLocaleString()} min</p>`;
         document.getElementById('content').innerHTML = content;
       });
 
       usaAirports.on('featureOut', featureEvent => {
-        document.getElementById('content').innerHTML = '';
+        document.getElementById('content').innerHTML = '<h3>name:</h3><p>total delays:</p><p>average delay:</p>';
       });
 
       // All errors are passed to the client.
